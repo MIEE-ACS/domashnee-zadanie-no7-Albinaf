@@ -20,6 +20,10 @@ namespace Snake
     /// </summary>
     public partial class MainWindow : Window
     {
+        //флаг, отвечающий за вероятность выпадания яблока
+        static public bool flag;
+       
+
         //Поле на котором живет змея
         Entity field;
         // голова змеи
@@ -28,11 +32,17 @@ namespace Snake
         List<PositionedEntity> snake;
         // яблоко
         Apple apple;
+        // отравленное яблоко
+        Apple1 apple1;
         //количество очков
         int score;
         //таймер по которому 
         DispatcherTimer moveTimer;
+        //таймер по которому происходит снятие очков во время отравления
+        DispatcherTimer moveTimer1;
         
+
+
         //конструктор формы, выполняется при запуске программы
         public MainWindow()
         {
@@ -42,11 +52,16 @@ namespace Snake
             //создаем поле 300х300 пикселей
             field = new Entity(600, 600, "pack://application:,,,/Resources/snake.png");
 
+            //создаем таймер срабатывающий раз в 1000 мс
+            moveTimer1 = new DispatcherTimer();
+            moveTimer1.Interval = new TimeSpan(0, 0, 0, 0, 1000);
+            moveTimer1.Tick += new EventHandler(moveTimer1_Tick);
+
             //создаем таймер срабатывающий раз в 300 мс
             moveTimer = new DispatcherTimer();
             moveTimer.Interval = new TimeSpan(0, 0, 0, 0, 300);
             moveTimer.Tick += new EventHandler(moveTimer_Tick);
-            
+
         }
 
         //метод перерисовывающий экран
@@ -62,9 +77,31 @@ namespace Snake
             //обновляем положение яблока
             Canvas.SetTop(apple.image, apple.y);
             Canvas.SetLeft(apple.image, apple.x);
+
             
+            //обновляем положение отравленного яблока
+            Canvas.SetTop(apple1.image, apple1.y);
+            Canvas.SetLeft(apple1.image, apple1.x);
+            
+
             //обновляем количество очков
             lblScore.Content = String.Format("{0}000", score);
+        }
+
+        //обработчик тика таймера отравленного яблока
+        void moveTimer1_Tick(object sender, EventArgs e)
+        {
+            score -= 1;
+
+            if (head.x == apple.x && head.y == apple.y)
+            {
+               moveTimer1.Stop();
+
+                canvas1.Children.Remove(apple.image);
+               
+
+                UpdateField();
+            }
         }
 
         //обработчик тика таймера. Все движение происходит здесь
@@ -101,15 +138,57 @@ namespace Snake
             //проверяем, что голова змеи врезалась в яблоко
             if (head.x == apple.x && head.y == apple.y)
             {
+            
+                //останавливаем таймер
+                moveTimer1.Stop();
+               
                 //увеличиваем счет
                 score++;
+
+                //убираем отравленное яблоко
+                canvas1.Children.Remove(apple1.image);
+
                 //двигаем яблоко на новое место
                 apple.move();
+
                 // добавляем новый сегмент к змее
                 var part = new BodyPart(snake.Last());
                 canvas1.Children.Add(part.image);
                 snake.Add(part);
+
+                // создаем отравленное яблоко с вероятностью 0,05
+                
+                
+
+                    Random random = new Random();
+                    int result = random.Next(1, 100);
+                    if (result >= 95)
+                     flag = true;
+                   
+
+                    if (flag == true)
+                    {
+                        apple1 = new Apple1(snake);
+                        canvas1.Children.Add(apple1.image);
+                        apple1.move();
+                    }
+                
             }
+
+            //проверяем, что голова змеи врезалась в отравленное яблоко
+            if (head.x == apple1.x && head.y == apple1.y)
+            {
+               
+                canvas1.Children.Remove(apple1.image);
+
+                //запускаем таймер
+                moveTimer1.Start();
+
+                //двигаем отравленное яблоко на новое место
+               apple1.move();
+
+            }
+
             //перерисовываем экран
             UpdateField();
         }
@@ -151,6 +230,9 @@ namespace Snake
             // создаем новое яблоко и добавлем его
             apple = new Apple(snake);
             canvas1.Children.Add(apple.image);
+            // создаем новое отравленное яблоко и добавляем его
+            apple1 = new Apple1(snake);
+            canvas1.Children.Add(apple1.image);
             // создаем голову
             head = new Head();
             snake.Add(head);
@@ -243,6 +325,40 @@ namespace Snake
                 {
                     x = rand.Next(13) * 40 + 40;
                     y = rand.Next(13) * 40 + 40;
+                    bool overlap = false;
+                    foreach (var p in m_snake)
+                    {
+                        if (p.x == x && p.y == y)
+                        {
+                            overlap = true;
+                            break;
+                        }
+                    }
+                    if (!overlap)
+                        break;
+                } while (true);
+
+            }
+        }
+
+        
+        public class Apple1 : PositionedEntity
+        {
+            List<PositionedEntity> m_snake;
+            public Apple1(List<PositionedEntity> s)
+                : base(0, 240, 40, 40, "pack://application:,,,/Resources/fruit.png")
+            {
+                m_snake = s;
+                move();
+            }
+
+            public override void move()
+            {
+                Random rand = new Random();
+                do
+                {
+                    x = rand.Next(12) * 40 + 40;
+                    y = rand.Next(12) * 40 + 40;
                     bool overlap = false;
                     foreach (var p in m_snake)
                     {
